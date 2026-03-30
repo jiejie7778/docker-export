@@ -1,0 +1,43 @@
+name: Export Docker Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_name:
+        description: 'Docker image name (e.g., docker.1ms.run/vllm/vllm-openai:v0.18.0)'
+        required: true
+        default: 'docker.1ms.run/vllm/vllm-openai:v0.18.0'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pull Docker Image
+        run: |
+          docker pull ${{ github.event.inputs.image_name }}
+
+      - name: Export to Tar
+        run: |
+          # 将镜像名转换为安全的文件名
+          SAFE_NAME=$(echo "${{ github.event.inputs.image_name }}" | sed 's/[\/:]/_/g')
+          docker save -o ${SAFE_NAME}.tar ${{ github.event.inputs.image_name }}
+          echo "EXPORT_FILE=${SAFE_NAME}.tar" >> $GITHUB_ENV
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ github.run_id }}
+          path: ${{ env.EXPORT_FILE }}
+          retention-days: 7
+          compression-level: 0
+
+      - name: Show Download Info
+        run: |
+          echo "✅ 镜像导出完成！"
+          echo "📦 文件名：${{ env.EXPORT_FILE }}"
+          echo "📥 下载方法：点击上方的 Artifacts 下载"
+          echo "🔧 本地导入命令：docker load -i ${{ env.EXPORT_FILE }}"
+          ls -lh ${{ env.EXPORT_FILE }}
